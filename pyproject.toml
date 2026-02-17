@@ -1,0 +1,67 @@
+[build-system]
+requires = ["hatchling>=1.25.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "langchain-hwp-hwpx-loader"
+version = "0.1.1"
+description = "LangChain document loaders for HWP/HWPX using hwp-hwpx-parser"
+readme = "README.md"
+requires-python = ">=3.10,<4.0"
+license = { file = "LICENSE" }
+authors = [
+  { name = "HWP Loader Contributors" },
+]
+keywords = ["langchain", "hwp", "hwpx", "rag", "loader"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: Apache Software License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Software Development :: Libraries",
+]
+dependencies = [
+  "langchain-core>=1.0.0,<2.0.0",
+  "hwp-hwpx-parser>=1.0.0,<2.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0.0",
+  "ruff>=0.7.0",
+  "black>=24.8.0",
+  "mypy>=1.11.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/jeounghopark/HWP-Loader"
+Repository = "https://github.com/jeounghopark/HWP-Loader"
+Issues = "https://github.com/jeounghopark/HWP-Loader/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/langchain_hwp_hwpx"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "src/langchain_hwp_hwpx",
+  "tests",
+  "LICENSE",
+  "README.md",
+  "CHANGELOG.md",
+  "pyproject.toml",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.black]
+line-length = 100
+target-version = ["py310"]
