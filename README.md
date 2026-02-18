@@ -3,6 +3,12 @@
 `langchain-hwp-hwpx-loader`는 `hwp-hwpx-parser` 기반의 순수 Python LangChain 로더입니다.  
 한국어 문서(`.hwp`, `.hwpx`)를 오프라인/온프렘 환경에서 읽어 RAG 파이프라인에 넣기 쉽게 만듭니다.
 
+## 왜 중요한가
+
+- 국내 문서 생태계에서 한컴 문서 수요는 여전히 큽니다.
+- 2025-10-09 보도에서 "업계에서는 한컴오피스가 차지하는 비중을 약 30%로 보고 있다."고 언급되었습니다.
+- 출처: [ChosunBiz](https://biz.chosun.com/it-science/ict/2025/10/09/NHYQN77XSFAWXJFFGSKU47IPZQ/)
+
 ## 한국어 사용 가이드
 
 ### 1) 설치
@@ -111,11 +117,64 @@ print("loaded:", len(docs))
 - OCR/레이아웃 렌더링은 범위 밖입니다.
 - Python 3.14에서 `langchain-core` 경고가 보일 수 있어, 실무에서는 Python 3.11/3.12를 권장합니다.
 
-## English (Brief)
+## English Guide
 
-Pure-Python LangChain loader for Korean `.hwp` / `.hwpx` documents.
+`langchain-hwp-hwpx-loader` is a pure-Python LangChain integration for Korean
+`.hwp` / `.hwpx` documents.
 
-- Install: `pip install langchain-hwp-hwpx-loader`
-- Main classes: `HwpHwpxLoader`, `HwpHwpxDirectoryLoader`
-- Modes: `single`, `elements`
+### Why this matters
+
+- Korean enterprise/public workflows still involve HWP-family documents.
+- A 2025-10-09 industry report states that Hancom Office share is estimated at
+  around 30%.
+- Source: [ChosunBiz](https://biz.chosun.com/it-science/ict/2025/10/09/NHYQN77XSFAWXJFFGSKU47IPZQ/)
+
+### Installation
+
+```bash
+pip install langchain-hwp-hwpx-loader
+```
+
+### Quickstart (`single`)
+
+```python
+from pathlib import Path
+
+from langchain_hwp_hwpx import HwpHwpxLoader
+
+loader = HwpHwpxLoader(
+    file_path=Path("docs/sample.hwp"),
+    mode="single",
+    include_tables=True,
+    include_notes=True,
+)
+
+docs = loader.load()
+print(len(docs))
+print(docs[0].metadata)
+```
+
+### Quickstart (`elements`)
+
+```python
+from langchain_hwp_hwpx import HwpHwpxLoader
+
+loader = HwpHwpxLoader("docs/sample.hwpx", mode="elements")
+for doc in loader.lazy_load():
+    print(doc.metadata["element_type"], doc.metadata["element_index"])
+```
+
+### Main options
+
+- `mode`: `"single"` or `"elements"`
+- `include_tables`, `include_notes`, `include_memos`, `include_hyperlinks`
+- `include_images`, `images_dir`, `image_document_mode`
+- `on_encrypted`: `"raise" | "skip" | "placeholder"`
+- `on_invalid`: `"raise" | "skip" | "placeholder"`
+- `on_error`: `"raise" | "skip" | "warn"`
+
+### Compatibility
+
 - Python: `>=3.10,<4.0`
+- `langchain-core>=1.0.0,<2.0.0`
+- `hwp-hwpx-parser>=1.0.0,<2.0.0`
