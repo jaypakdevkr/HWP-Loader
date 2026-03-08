@@ -125,8 +125,8 @@ print("loaded:", len(docs))
 ### Why this matters
 
 - Korean enterprise/public workflows still involve HWP-family documents.
-- A 2025-10-09 industry report states that Hancom Office share is estimated at
-  around 30%.
+- A 2025-10-09 industry report says that industry estimates place Hancom Office
+  market share at around 30% in Korea.
 - Source: [ChosunBiz](https://biz.chosun.com/it-science/ict/2025/10/09/NHYQN77XSFAWXJFFGSKU47IPZQ/)
 
 ### Installation
