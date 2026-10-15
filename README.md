@@ -17,6 +17,40 @@
 pip install langchain-hwp-hwpx-loader
 ```
 
+### 배포용 HWP와 0.2.0 변경 사항
+
+배포용 HWP는 일반 HWP와 본문 저장 위치가 다릅니다. 기본 설치는 이를 감지하면
+오류를 발생시켜 안내문만 정상 본문으로 처리하는 일을 방지합니다.
+실제 본문을 읽으려면 선택 의존성과 백엔드를 명시하세요.
+
+```bash
+pip install -U "langchain-hwp-hwpx-loader[distribution]==0.2.0"
+```
+
+```python
+from langchain_hwp_hwpx import HwpHwpxLoader
+
+docs = HwpHwpxLoader(
+    "배포용문서.hwp",
+    mode="elements",
+    distribution_backend="pyhwp",
+).load()
+```
+
+- `pyhwp`는 **AGPLv3+** 라이선스의 선택 의존성입니다. 이 로더의 MIT 라이선스와 별개입니다.
+- `on_unsupported="raise" | "skip" | "placeholder"`로 미지원 파일 정책을 지정합니다.
+  암호로 보호된 문서는 기존 `on_encrypted` 정책을 따릅니다.
+- 본문과 표를 분리하여 표 중복을 제거했습니다. `include_tables=False`는 표 안의 텍스트도 제외합니다.
+- 병합 셀은 시작 셀에 `[rowspan=2, colspan=1]`, 덮인 셀에 `[merged:R1C1]`처럼 표시됩니다.
+  R/C 표시는 1부터 시작합니다. `mode="elements"`의 표 메타데이터 `cells`에는
+  **0부터 시작하는** `row`, `col`과 `rowspan`, `colspan`, `text`가 들어갑니다.
+- 중첩 표는 상위 표의 셀 안에서 한 번만 렌더링합니다. `cells`는 해당 최상위 표의 셀 정보입니다.
+- 이미지는 문서 경로 해시 하위 폴더에 순번으로 저장하여 동명 이미지 충돌을 피합니다.
+  원래 파일명은 메타데이터에 남습니다. 동일 문서를 같은 경로로 다시 읽으면 저장 파일을 갱신합니다.
+- 기존 벡터 인덱스는 재생성하세요. 표 내용과 이미지 저장 경로가 이전 버전과 달라집니다.
+- 검증한 `hwp-hwpx-parser==1.0.0`의 내부 API를 사용합니다. 원본 페이지 배치/OCR을 복원하는 기능은 아닙니다.
+- `lazy_load()`를 중간에 중단한다면 반환된 제너레이터의 `close()`를 호출해 즉시 파일을 해제하세요.
+
 ### 2) 단일 파일 로딩 (`mode="single"`)
 
 문서 전체를 `Document` 1개로 반환합니다.

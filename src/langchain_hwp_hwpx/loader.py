@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import hashlib
 import logging
 from datetime import datetime, timezone
 from importlib import metadata as importlib_metadata
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any, Iterator, Literal
 
 from ._version import __version__
@@ -35,12 +37,12 @@ class _SkipFile(Exception):
 
 def _import_parser() -> Any:
     try:
-        import hwp_hwpx_parser as parser  # type: ignore[import-untyped]
+        from .parser_compat import IntegrityReader
     except ImportError as exc:
         raise ImportError(
             "hwp-hwpx-parser is required. Install with: pip install hwp-hwpx-parser"
         ) from exc
-    return parser
+    return SimpleNamespace(Reader=IntegrityReader)
 
 
 def _iso_utc_now() -> str:
@@ -136,14 +138,17 @@ class HwpHwpxLoader(BaseLoader):
         on_error: ErrorPolicy = "raise",
         extra_metadata: dict[str, Any] | None = None,
         include_extracted_at: bool = True,
+        on_unsupported: StatusPolicy = "raise",
+        distribution_backend: Literal["pyhwp"] | None = None,
     ) -> None:
+        _validate_literal(on_unsupported, "on_unsupported", _VALID_STATUS_POLICIES)
+        if distribution_backend not in (None, "pyhwp"):
+            raise ValueError("distribution_backend must be None or 'pyhwp'")
         _validate_literal(mode, "mode", _VALID_MODES)
         _validate_literal(on_encrypted, "on_encrypted", _VALID_STATUS_POLICIES)
         _validate_literal(on_invalid, "on_invalid", _VALID_STATUS_POLICIES)
         _validate_literal(on_error, "on_error", _VALID_ERROR_POLICIES)
-        _validate_literal(
-            image_document_mode, "image_document_mode", _VALID_IMAGE_DOCUMENT_MODES
-        )
+        _validate_literal(image_document_mode, "image_document_mode", _VALID_IMAGE_DOCUMENT_MODES)
 
         self.file_path = Path(file_path)
         self.mode = mode
@@ -156,6 +161,8 @@ class HwpHwpxLoader(BaseLoader):
         self.images_dir = Path(images_dir) if images_dir is not None else None
         self.image_document_mode = image_document_mode
         self.on_encrypted = on_encrypted
+        self.on_unsupported = on_unsupported
+        self.distribution_backend = distribution_backend
         self.on_invalid = on_invalid
         self.on_error = on_error
         self.extra_metadata = dict(extra_metadata or {})
@@ -168,6 +175,7 @@ class HwpHwpxLoader(BaseLoader):
         if not file_path.exists():
             raise FileNotFoundError(f"File not found: {file_path}")
 
+        reader = None
         try:
             reader = self._create_reader(file_path)
             base_metadata = self._build_common_metadata(file_path, reader)
@@ -189,9 +197,14 @@ class HwpHwpxLoader(BaseLoader):
         except Exception as exc:
             self._handle_runtime_error(file_path, exc)
             return
+        finally:
+            if reader is not None and hasattr(reader, "close"):
+                reader.close()
 
     def _create_reader(self, file_path: Path) -> Any:
         parser = _import_parser()
+        if self.distribution_backend is not None:
+            return parser.Reader(str(file_path), distribution_backend=self.distribution_backend)
         return parser.Reader(str(file_path))
 
     def _extract_result(self, reader: Any) -> Any:
@@ -229,6 +242,14 @@ class HwpHwpxLoader(BaseLoader):
                 base_metadata=base_metadata,
             )
 
+        reason = getattr(reader, "unsupported_reason", None)
+        if reason:
+            return self._resolve_status_policy(
+                self.on_unsupported,
+                "unsupported",
+                self.file_path,
+                {**base_metadata, "unsupported_reason": reason},
+            )
         return None
 
     def _resolve_status_policy(
@@ -239,6 +260,8 @@ class HwpHwpxLoader(BaseLoader):
         base_metadata: dict[str, Any],
     ) -> Document | None:
         message = f"Document skipped because it is {status}: {file_path}"
+        if "unsupported_reason" in base_metadata:
+            message += f". {base_metadata['unsupported_reason']}"
         if policy == "raise":
             raise HwpHwpxLoaderError(message)
         if policy == "skip":
@@ -329,6 +352,8 @@ class HwpHwpxLoader(BaseLoader):
                     table_metadata["row_count"] = row_count
                 if col_count is not None:
                     table_metadata["col_count"] = col_count
+                if hasattr(table, "cells"):
+                    table_metadata["cells"] = table.cells
                 yield Document(
                     page_content=self._render_table(table),
                     metadata=table_metadata,
@@ -398,9 +423,8 @@ class HwpHwpxLoader(BaseLoader):
         return metadata
 
     def _extract_body_text(self, reader: Any, result: Any) -> str:
-        text = _string(getattr(result, "text", "")).strip()
-        if text:
-            return text
+        if hasattr(result, "text"):
+            return _string(result.text).strip()
         return _string(getattr(reader, "text", "")).strip()
 
     def _collect_tables(self, reader: Any, result: Any) -> list[Any]:
@@ -527,10 +551,14 @@ class HwpHwpxLoader(BaseLoader):
         metadata["image_format"] = fmt
 
         if self.image_document_mode == "save_and_reference" and self.images_dir is not None:
-            self.images_dir.mkdir(parents=True, exist_ok=True)
-            output_path = self.images_dir / resolved_name
-            if output_path.suffix == "":
-                output_path = output_path.with_suffix(f".{fmt}")
+            # Source path separates documents; index avoids duplicate embedded filenames.
+            namespace = hashlib.sha256(str(file_path.resolve()).encode()).hexdigest()[:16]
+            extension = fmt if fmt.isascii() and fmt.isalnum() and len(fmt) <= 10 else "bin"
+            root = self.images_dir.resolve()
+            output_path = (root / namespace / f"image_{image_index:04d}.{extension}").resolve()
+            if not output_path.is_relative_to(root):
+                raise ValueError("Image output path escapes images_dir")
+            output_path.parent.mkdir(parents=True, exist_ok=True)
             if hasattr(image, "save"):
                 image.save(str(output_path))
                 metadata["saved_path"] = str(output_path)
@@ -586,9 +614,7 @@ class HwpHwpxDirectoryLoader(BaseLoader):
             candidates = self.dir_path.glob(local_pattern)
 
         files = [
-            path
-            for path in candidates
-            if path.is_file() and path.suffix.lower() in self.extensions
+            path for path in candidates if path.is_file() and path.suffix.lower() in self.extensions
         ]
         return sorted(files, key=lambda item: str(item))
 
