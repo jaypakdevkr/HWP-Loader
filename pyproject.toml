@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "langchain-hwp-hwpx-loader"
-version = "0.1.1"
+version = "0.2.0"
 description = "LangChain document loaders for HWP/HWPX using hwp-hwpx-parser"
 readme = "README.md"
 requires-python = ">=3.10,<4.0"
@@ -16,7 +16,7 @@ keywords = ["langchain", "hwp", "hwpx", "rag", "loader"]
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Intended Audience :: Developers",
-  "License :: OSI Approved :: Apache Software License",
+  "License :: OSI Approved :: MIT License",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
@@ -25,10 +25,11 @@ classifiers = [
 ]
 dependencies = [
   "langchain-core>=1.0.0,<2.0.0",
-  "hwp-hwpx-parser>=1.0.0,<2.0.0",
+  "hwp-hwpx-parser==1.0.0",
 ]
 
 [project.optional-dependencies]
+distribution = ["pyhwp==0.1b15", "six>=1.17.0"]
 dev = [
   "pytest>=8.0.0",
   "ruff>=0.7.0",
@@ -37,9 +38,9 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/jeounghopark/HWP-Loader"
-Repository = "https://github.com/jeounghopark/HWP-Loader"
-Issues = "https://github.com/jeounghopark/HWP-Loader/issues"
+Homepage = "https://github.com/jaypakdevkr/HWP-Loader"
+Repository = "https://github.com/jaypakdevkr/HWP-Loader"
+Issues = "https://github.com/jaypakdevkr/HWP-Loader/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/langchain_hwp_hwpx"]
@@ -61,6 +62,10 @@ addopts = "-ra"
 [tool.ruff]
 line-length = 100
 target-version = "py310"
+
+# Keep the original Ruff rule set stable across Ruff releases.
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F"]
 
 [tool.black]
 line-length = 100
