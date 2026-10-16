@@ -1,6 +1,7 @@
 """Regression tests with real parser inputs (no university document bundled)."""
 
 import io
+import json
 import struct
 import zipfile
 from pathlib import Path
@@ -58,8 +59,41 @@ def test_table_once_and_excluded(table_file, mode):
 def test_merged_cell_position_and_metadata(table_file):
     table = HwpHwpxLoader(table_file, mode="elements").load()[1]
     assert "| [merged:R1C1] | 둘째값 |" in table.page_content
-    assert table.metadata["cells"][0] == dict(row=0, col=0, rowspan=2, colspan=1, text="공통")
-    assert table.metadata["cells"][2]["col"] == 1
+    assert isinstance(table.metadata["cells"], str)
+    cells = json.loads(table.metadata["cells"])
+    assert cells == [
+        dict(row=0, col=0, rowspan=2, colspan=1, text="공통"),
+        dict(row=0, col=1, rowspan=1, colspan=1, text="첫값"),
+        dict(row=1, col=1, rowspan=1, colspan=1, text="둘째값"),
+    ]
+
+
+@pytest.mark.parametrize("mode", ["single", "elements"])
+def test_split_documents_store_in_chroma_without_metadata_filter(table_file, tmp_path, mode):
+    from langchain_chroma import Chroma
+    from langchain_core.embeddings import DeterministicFakeEmbedding
+    from langchain_text_splitters import RecursiveCharacterTextSplitter
+
+    docs = HwpHwpxLoader(table_file, mode=mode).load()
+    chunks = RecursiveCharacterTextSplitter(chunk_size=60, chunk_overlap=10).split_documents(docs)
+    assert len(chunks) > len(docs)
+    db = Chroma.from_documents(
+        documents=chunks,
+        embedding=DeterministicFakeEmbedding(size=16),
+        persist_directory=str(tmp_path / "chroma"),
+        collection_metadata={"hnsw:space": "cosine"},
+    )
+    try:
+        stored = db.get()
+        assert sorted(stored["documents"]) == sorted(doc.page_content for doc in chunks)
+        assert len(stored["metadatas"]) == len(chunks)
+        for metadata in stored["metadatas"]:
+            if metadata["element_type"] == "table":
+                assert json.loads(metadata["cells"])[0]["rowspan"] == 2
+        result = db.similarity_search(chunks[0].page_content, k=1)
+        assert result[0].page_content == chunks[0].page_content
+    finally:
+        db.delete_collection()
 
 
 def test_table_only_and_nested(tmp_path):

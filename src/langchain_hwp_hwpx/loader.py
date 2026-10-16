@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import logging
 from datetime import datetime, timezone
 from importlib import metadata as importlib_metadata
@@ -353,7 +354,7 @@ class HwpHwpxLoader(BaseLoader):
                 if col_count is not None:
                     table_metadata["col_count"] = col_count
                 if hasattr(table, "cells"):
-                    table_metadata["cells"] = table.cells
+                    table_metadata["cells"] = json.dumps(table.cells, ensure_ascii=False)
                 yield Document(
                     page_content=self._render_table(table),
                     metadata=table_metadata,

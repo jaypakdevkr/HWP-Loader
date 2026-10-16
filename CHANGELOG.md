@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and this project follows SemVer.
 
+## [0.2.1] - 2026-10-16
+
+### Fixed
+
+- Serialize table `metadata["cells"]` as a JSON string so default HWP/HWPX elements
+  can be split and stored in Chroma without filtering metadata. Cell coordinates,
+  merged spans and text are preserved; consumers of `cells` should use `json.loads()`.
+- Add Chroma storage and retrieval regression tests for split documents in both modes.
+
 ## [0.2.0] - 2026-10-15
 
 ### Fixed
