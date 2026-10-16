@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "langchain-hwp-hwpx-loader"
-version = "0.2.0"
+version = "0.2.1"
 description = "LangChain document loaders for HWP/HWPX using hwp-hwpx-parser"
 readme = "README.md"
 requires-python = ">=3.10,<4.0"
@@ -35,6 +35,8 @@ dev = [
   "ruff>=0.7.0",
   "black>=24.8.0",
   "mypy>=1.11.0",
+  "langchain-chroma>=1.0.0,<2.0.0",
+  "langchain-text-splitters>=1.0.0,<2.0.0",
 ]
 
 [project.urls]

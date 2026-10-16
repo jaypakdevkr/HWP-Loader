@@ -24,7 +24,7 @@ pip install langchain-hwp-hwpx-loader
 실제 본문을 읽으려면 선택 의존성과 백엔드를 명시하세요.
 
 ```bash
-pip install -U "langchain-hwp-hwpx-loader[distribution]==0.2.0"
+pip install -U "langchain-hwp-hwpx-loader[distribution]==0.2.1"
 ```
 
 ```python
@@ -42,7 +42,7 @@ docs = HwpHwpxLoader(
   암호로 보호된 문서는 기존 `on_encrypted` 정책을 따릅니다.
 - 본문과 표를 분리하여 표 중복을 제거했습니다. `include_tables=False`는 표 안의 텍스트도 제외합니다.
 - 병합 셀은 시작 셀에 `[rowspan=2, colspan=1]`, 덮인 셀에 `[merged:R1C1]`처럼 표시됩니다.
-  R/C 표시는 1부터 시작합니다. `mode="elements"`의 표 메타데이터 `cells`에는
+  R/C 표시는 1부터 시작합니다. `mode="elements"`의 표 메타데이터 `cells`에는 JSON 문자열로
   **0부터 시작하는** `row`, `col`과 `rowspan`, `colspan`, `text`가 들어갑니다.
 - 중첩 표는 상위 표의 셀 안에서 한 번만 렌더링합니다. `cells`는 해당 최상위 표의 셀 정보입니다.
 - 이미지는 문서 경로 해시 하위 폴더에 순번으로 저장하여 동명 이미지 충돌을 피합니다.
@@ -50,6 +50,28 @@ docs = HwpHwpxLoader(
 - 기존 벡터 인덱스는 재생성하세요. 표 내용과 이미지 저장 경로가 이전 버전과 달라집니다.
 - 검증한 `hwp-hwpx-parser==1.0.0`의 내부 API를 사용합니다. 원본 페이지 배치/OCR을 복원하는 기능은 아닙니다.
 - `lazy_load()`를 중간에 중단한다면 반환된 제너레이터의 `close()`를 호출해 즉시 파일을 해제하세요.
+
+### Chroma 호환성 (0.2.1)
+
+0.2.0에서 표의 `metadata["cells"]`를 딕셔너리 목록으로 반환하여
+`Chroma.from_documents()`가 실패하는 문제를 수정했습니다.
+0.2.1부터는 셀 구조를 JSON 문자열로 저장합니다. 본문과 표 텍스트는 바뀌지 않으며,
+기본 로딩 결과는 `filter_complex_metadata()` 없이 Chroma에 저장할 수 있습니다.
+직접 `extra_metadata`를 지정하는 경우에는 사용하는 벡터 저장소에서 허용하는 자료형을 사용하세요.
+
+셀 구조를 직접 처리하는 코드는 다음과 같이 JSON 문자열을 복원하세요.
+
+```python
+import json
+
+for doc in docs:
+    if doc.metadata.get("element_type") == "table":
+        cells = json.loads(doc.metadata["cells"])
+        # cells: row, col, rowspan, colspan, text를 가진 딕셔너리 목록
+```
+
+Colab에서 업그레이드한 경우 런타임을 다시 시작한 뒤 문서 로딩부터 실행하세요.
+이미 메모리에 로드된 0.2.0 문서 객체의 메타데이터는 자동으로 변경되지 않습니다.
 
 ### 2) 단일 파일 로딩 (`mode="single"`)
 
